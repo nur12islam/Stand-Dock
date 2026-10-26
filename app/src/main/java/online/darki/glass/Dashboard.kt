@@ -50,7 +50,7 @@ fun Dashboard(onSettings: () -> Unit, onAppearance: () -> Unit) {
         animationSpec = infiniteRepeatable(tween(3200), RepeatMode.Reverse), label = "glow"
     )
     BoxWithConstraints(Modifier.fillMaxSize().background(
-        Brush.radialGradient(listOf(Color(0xFF291018), bg), radius = maxWidth.value * 1.5f)
+        Brush.radialGradient(listOf(Color(0xFF291018), bg), radius = 1200f)
     ).padding(18.dp)) {
         Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Column(Modifier.weight(1.05f).fillMaxHeight(), verticalArrangement = Arrangement.Center) {
