@@ -1,0 +1,17 @@
+{
+  "name": "Stand-Dock — Living Horizon OLED Standby Display",
+  "short_name": "Stand-Dock",
+  "description": "True-black #000000 OLED standby dock with circadian color shifting, Lissajous burn-in protection, Bauhaus chrono-dial, and ambient shaders.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "assets/cover-eclipse.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}

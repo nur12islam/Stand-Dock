@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#000000" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Stand-Dock — Living Horizon OLED Standby Display</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent: #FF8C00;
+      --accent-soft: rgba(255, 140, 0, 0.16);
+      --accent-glow: rgba(255, 140, 0, 0.38);
+      --accent-secondary: #FFB347;
+      --text-main: #FFF3E0;
+      --text-muted: rgba(255, 210, 160, 0.52);
+      --text-dim: rgba(255, 180, 110, 0.24);
+      --card-border: rgba(255, 140, 0, 0.14);
+      --card-bg: rgba(8, 5, 2, 0.72);
+    }
+
+    [data-theme="daylight"] {
+      --accent: #00F0FF;
+      --accent-soft: rgba(0, 240, 255, 0.14);
+      --accent-glow: rgba(0, 240, 255, 0.35);
+      --accent-secondary: #E2F8FF;
+      --text-main: #F8FAFC;
+      --text-muted: rgba(226, 232, 240, 0.56);
+      --text-dim: rgba(148, 163, 184, 0.25);
+      --card-border: rgba(0, 240, 255, 0.16);
+      --card-bg: rgba(3, 7, 11, 0.72);
+    }
+
+    [data-theme="amber"] {
+      --accent: #FF8C00;
+      --accent-soft: rgba(255, 140, 0, 0.15);
+      --accent-glow: rgba(255, 140, 0, 0.38);
+      --accent-secondary: #FFD180;
+      --text-main: #FFF5EB;
+      --text-muted: rgba(255, 204, 153, 0.52);
+      --text-dim: rgba(255, 160, 80, 0.22);
+      --card-border: rgba(255, 140, 0, 0.15);
+      --card-bg: rgba(7, 4, 0, 0.72);
+    }
+
+    [data-theme="midnight"] {
+      --accent: #D92626;
+      --accent-soft: rgba(180, 20, 20, 0.14);
+      --accent-glow: rgba(217, 38, 38, 0.28);
+      --accent-secondary: #FF6666;
+      --text-main: #FCA5A5;
+      --text-muted: rgba(239, 68, 68, 0.48);
+      --text-dim: rgba(153, 27, 27, 0.28);
+      --card-border: rgba(185, 28, 28, 0.18);
+      --card-bg: rgba(5, 0, 0, 0.85);
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      background-color: #000000;
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+    }
+
+    .font-mono-tech {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .font-display {
+      font-family: 'Space Grotesk', sans-serif;
+    }
+
+    /* True OLED Bento Card */
+    .oled-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      transition: border-color 0.5s ease, opacity 0.6s ease, transform 0.6s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.5s ease;
+    }
+
+    .oled-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 28px -12px var(--accent-glow);
+    }
+
+    /* Album Art Vignette Fade into Pure #000000 */
+    .album-vignette {
+      position: relative;
+      overflow: hidden;
+    }
+    .album-vignette::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at center, transparent 35%, #000000 96%);
+      pointer-events: none;
+    }
+
+    /* Accent Glow Text & Borders */
+    .accent-text {
+      color: var(--accent);
+    }
+    .accent-glow-text {
+      color: var(--accent);
+      text-shadow: 0 0 18px var(--accent-glow);
+    }
+    .accent-border {
+      border-color: var(--card-border);
+    }
+    .accent-pill {
+      background: var(--accent-soft);
+      color: var(--accent);
+      border: 1px solid var(--card-border);
+    }
+
+    /* Screen Edge Ember Pulse on Timer Complete */
+    @keyframes emberPulse {
+      0%, 100% { box-shadow: inset 0 0 0px transparent; }
+      50% { box-shadow: inset 0 0 65px var(--accent-glow); }
+    }
+    .ember-alert-pulse {
+      animation: emberPulse 2.4s ease-in-out infinite;
+    }
+
+    /* Proximity Radar States */
+    body[data-proximity="away"] .proximity-secondary {
+      opacity: 0.04;
+      filter: blur(2px);
+      pointer-events: none;
+    }
+    body[data-proximity="away"] .proximity-hud {
+      opacity: 0;
+      pointer-events: none;
+    }
+    body[data-proximity="away"] .chrono-core {
+      transform: scale(1.06);
+      opacity: 0.55;
+    }
+
+    body[data-proximity="across"] .proximity-secondary {
+      opacity: 0.42;
+    }
+    body[data-proximity="across"] .proximity-hud {
+      opacity: 0.25;
+    }
+
+    body[data-proximity="near"] .proximity-secondary {
+      opacity: 1;
+    }
+    body[data-proximity="near"] .proximity-hud {
+      opacity: 1;
+    }
+
+    /* Custom subtle scrollbars */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #000000;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--card-border);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body data-theme="amber" data-proximity="near" class="min-h-screen bg-black text-[var(--text-main)] flex flex-col justify-between relative selection:bg-amber-500/30">
+
+  <!-- SHADER WEATHER BEZEL OVERLAY CANVAS -->
+  <canvas id="weatherShaderCanvas" class="fixed inset-0 pointer-events-none z-30"></canvas>
+
+  <!-- SCREEN-EDGE EMBER PULSE OVERLAY -->
+  <div id="emberEdgeOverlay" class="fixed inset-0 pointer-events-none z-20 transition-opacity duration-700 opacity-0"></div>
+
+  <!-- TOP AMBIENT TELEMETRY & DOCK HUD -->
+  <header class="proximity-hud relative z-40 w-full max-w-7xl mx-auto px-4 sm:px-6 pt-3 pb-1 flex flex-wrap items-center justify-between gap-2 transition-opacity duration-500">
+    <!-- Left Brand & OLED Pixel Telemetry -->
+    <div class="flex items-center gap-3">
+      <div class="flex items-center gap-2 px-2.5 py-1 rounded-full oled-card">
+        <span id="oledStatusDot" class="w-2 h-2 rounded-full bg-[var(--accent)] animate-pulse"></span>
+        <span class="font-mono-tech text-[11px] tracking-wider uppercase text-[var(--text-muted)]">STAND-DOCK OLED</span>
+      </div>
+      <div class="hidden md:flex items-center gap-2 px-2.5 py-1 rounded-full bg-black border border-white/5 text-[11px] font-mono-tech text-[var(--text-muted)]" title="Percentage of screen pixels turned completely off (#000000)">
+        <span>TRUE BLACK:</span>
+        <span id="blackPixelRatio" class="accent-text font-semibold">94.2%</span>
+      </div>
+      <div class="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black border border-white/5 text-[11px] font-mono-tech text-[var(--text-muted)]" title="Lissajous Burn-In Pixel Shifter Offset">
+        <span>DRIFT:</span>
+        <span id="driftCoordReadout" class="accent-text">+0.0px, +0.0px</span>
+      </div>
+    </div>
+
+    <!-- Center/Right Interactive Controls Bar -->
+    <div class="flex flex-wrap items-center gap-1.5 sm:gap-2">
+      <!-- Circadian Theme Switcher -->
+      <div class="flex items-center bg-black/90 border border-white/10 rounded-full p-0.5 text-[11px] font-mono-tech">
+        <button id="themeDayBtn" type="button" data-theme-select="daylight" class="px-2.5 py-1 rounded-full transition-all text-slate-400 hover:text-white">DAY</button>
+        <button id="themeAmberBtn" type="button" data-theme-select="amber" class="px-2.5 py-1 rounded-full transition-all accent-pill">AMBER</button>
+        <button id="themeMidBtn" type="button" data-theme-select="midnight" class="px-2.5 py-1 rounded-full transition-all text-slate-400 hover:text-white">RED</button>
+        <button id="themeAutoBtn" type="button" data-theme-select="auto" class="px-2.5 py-1 rounded-full transition-all text-slate-400 hover:text-white" title="Sync palette with real solar clock">AUTO</button>
+      </div>
+
+      <!-- Shader Weather Edge Selector -->
+      <div class="flex items-center bg-black/90 border border-white/10 rounded-full p-0.5 text-[11px] font-mono-tech">
+        <button id="weatherRainBtn" type="button" data-weather-select="rain" class="px-2.5 py-1 rounded-full transition-all accent-pill" title="Raindrop Bezel Shader">RAIN</button>
+        <button id="weatherGoldenBtn" type="button" data-weather-select="golden" class="px-2.5 py-1 rounded-full transition-all text-slate-400 hover:text-white" title="Golden Hour Horizon Glow">SOLAR</button>
+        <button id="weatherStarsBtn" type="button" data-weather-select="stars" class="px-2.5 py-1 rounded-full transition-all text-slate-400 hover:text-white" title="Nocturnal Starlight Edge">STARS</button>
+        <button id="weatherOffBtn" type="button" data-weather-select="off" class="px-2 py-1 rounded-full transition-all text-slate-400 hover:text-white">OFF</button>
+      </div>
+
+      <!-- Proximity / Radar Mode Simulator -->
+      <div class="flex items-center bg-black/90 border border-white/10 rounded-full p-0.5 text-[11px] font-mono-tech">
+        <button id="proxAwayBtn" type="button" data-prox-select="away" class="px-2 py-1 rounded-full transition-all text-slate-400 hover:text-white" title="98% Dark — Clock Only">AWAY</button>
+        <button id="proxAcrossBtn" type="button" data-prox-select="across" class="px-2 py-1 rounded-full transition-all text-slate-400 hover:text-white" title="Dim Ambient Glance">ROOM</button>
+        <button id="proxNearBtn" type="button" data-prox-select="near" class="px-2 py-1 rounded-full transition-all accent-pill" title="Full Desk Reach Controls">NEAR</button>
+      </div>
+
+      <!-- Burn-In Drift Speed Toggle -->
+      <button id="driftDemoBtn" type="button" class="px-2.5 py-1 rounded-full bg-black border border-white/10 hover:border-[var(--accent)] text-[11px] font-mono-tech text-[var(--text-muted)] transition-all" title="Preview Lissajous pixel-shifting orbit at 15x speed">
+        DRIFT: 1x
+      </button>
+
+      <!-- Fullscreen & Wake Lock Button -->
+      <button id="fullscreenBtn" type="button" class="px-2.5 py-1 rounded-full oled-card text-[11px] font-mono-tech accent-text hover:opacity-90 flex items-center gap-1" title="Enter Fullscreen & Keep OLED Screen Awake">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
+        <span id="fullscreenLabel">DOCK LOCK</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN 3-ZONE BENTO GRID (LIVING HORIZON) -->
+  <!-- Pixel-shift container moves along a gentle Lissajous curve to prevent OLED burn-in -->
+  <main id="pixelShiftContainer" class="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 py-3 my-auto transition-transform duration-300 ease-out">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5 items-stretch">
+
+      <!-- ================================================================= -->
+      <!-- LEFT ZONE (4 COLS): THE BAUHAUS CHRONO-DIAL & AMBIENT VIP SIGNALS -->
+      <!-- ================================================================= -->
+      <section class="lg:col-span-4 oled-card rounded-3xl p-5 sm:p-6 flex flex-col justify-between relative overflow-hidden">
+        <!-- Top Row: Date + 12/24H Format Switch -->
+        <div class="proximity-secondary flex items-center justify-between w-full z-10">
+          <div>
+            <p id="dateDayName" class="font-mono-tech text-xs uppercase tracking-widest accent-text">MONDAY</p>
+            <h2 id="dateFullText" class="font-display text-sm sm:text-base font-medium text-[var(--text-main)]">NOV 09, 2026</h2>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <button id="toggleFormatBtn" type="button" class="px-2.5 py-1 rounded-full bg-black border border-white/10 text-[11px] font-mono-tech text-[var(--text-muted)] hover:border-[var(--accent)] transition-colors">
+              24H
+            </button>
+            <button id="addSignalBtn" type="button" class="px-2.5 py-1 rounded-full bg-black border border-white/10 text-[11px] font-mono-tech accent-text hover:border-[var(--accent)] transition-colors" title="Simulate incoming VIP Ambient Orbital Dot">
+              + PING
+            </button>
+          </div>
+        </div>
+
+        <!-- Center: Sweeping Bauhaus Hybrid Analog-Digital Chrono-Dial -->
+        <div class="chrono-core my-4 sm:my-6 flex flex-col items-center justify-center relative transition-all duration-700">
+          <div class="relative w-56 h-56 sm:w-64 sm:h-64 flex items-center justify-center">
+            <!-- SVG Ring & Orbital VIP Signal Dots -->
+            <svg id="chronoSvg" class="w-full h-full -rotate-90 overflow-visible" viewBox="0 0 240 240">
+              <!-- Subtle Minute Tick Marks -->
+              <g id="clockTicks" stroke="rgba(255,255,255,0.12)" stroke-width="1.2"></g>
+
+              <!-- Outer Track Ring -->
+              <circle cx="120" cy="120" r="102" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="2.5" />
+
+              <!-- Sweeping Second-Hand Arc -->
+              <circle id="secondsArc" cx="120" cy="120" r="102" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round" stroke-dasharray="640.88" stroke-dashoffset="320" style="filter: drop-shadow(0 0 8px var(--accent-glow));" />
+
+              <!-- Sweeping Second-Hand Tip Dot -->
+              <circle id="secondTipDot" cx="222" cy="120" r="4.5" fill="var(--accent)" style="filter: drop-shadow(0 0 10px var(--accent));" />
+
+              <!-- Orbital VIP Notification Track (Radius 114) -->
+              <circle cx="120" cy="120" r="114" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="1" stroke-dasharray="2 6" />
+              <g id="vipOrbitalGroup"></g>
+            </svg>
+
+            <!-- Digital Core Typography Inside the Ring -->
+            <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none">
+              <div class="flex items-baseline gap-1">
+                <span id="clockHours" class="font-display text-5xl sm:text-6xl font-bold tracking-tight text-[var(--text-main)]">16</span>
+                <span id="clockColon" class="font-display text-4xl sm:text-5xl font-light accent-glow-text">:</span>
+                <span id="clockMinutes" class="font-display text-5xl sm:text-6xl font-bold tracking-tight text-[var(--text-main)]">42</span>
+              </div>
+              <div class="mt-1 flex items-center gap-2 font-mono-tech text-xs text-[var(--text-muted)]">
+                <span id="clockSeconds">00s</span>
+                <span id="clockAmPm" class="hidden px-1.5 py-0.5 rounded text-[10px] accent-pill">PM</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ambient VIP Signal Pill (Interactive on dot click, zero text clutter) -->
+          <div id="vipSignalDrawer" class="proximity-secondary mt-2 min-h-[28px] flex flex-wrap items-center justify-center gap-1.5">
+            <!-- Dynamically populated orbital VIP chips -->
+          </div>
+        </div>
+
+        <!-- Bottom: Waking Day Progress Bar (07:00 - 23:00) -->
+        <div class="proximity-secondary w-full pt-3 border-t border-white/5">
+          <div class="flex items-center justify-between text-[11px] font-mono-tech mb-1.5">
+            <span class="text-[var(--text-muted)]">WAKING HORIZON (07:00–23:00)</span>
+            <span id="dayLeftText" class="accent-text font-medium">6h 18m left (61%)</span>
+          </div>
+          <div class="w-full h-1.5 bg-white/5 rounded-full overflow-hidden p-0">
+            <div id="dayProgressBar" class="h-full rounded-full transition-all duration-700" style="width: 61%; background: linear-gradient(90deg, var(--accent), var(--accent-secondary)); box-shadow: 0 0 12px var(--accent-glow);"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- CENTER ZONE (4 COLS): NEXT-UP 3H TIMELINE & POMODORO EMBER TIMER  -->
+      <!-- ================================================================= -->
+      <section class="proximity-secondary lg:col-span-4 flex flex-col gap-4 sm:gap-5 justify-between">
+        
+        <!-- Module 2A: Next 3 Hours Timeline -->
+        <div class="oled-card rounded-3xl p-5 flex-1 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <div class="flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-[var(--accent)]"></span>
+                <h3 class="font-mono-tech text-xs uppercase tracking-widest text-[var(--text-muted)]">NEXT 3H HORIZON</h3>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="nextEventAlertPill" class="px-2 py-0.5 rounded-full text-[10px] font-mono-tech accent-pill animate-pulse">
+                  IN 18 MIN
+                </span>
+                <button id="openAddEventBtn" type="button" class="px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/10 text-[11px] font-mono-tech text-[var(--text-main)] transition-colors" title="Add Focus Block or Meeting">
+                  + BLOCK
+                </button>
+              </div>
+            </div>
+
+            <!-- Add Event Inline Mini-Form (Hidden by default) -->
+            <form id="addEventForm" class="hidden mb-3 p-3 rounded-2xl bg-black border border-white/15 space-y-2">
+              <div class="flex gap-2">
+                <input id="newEventTime" type="time" value="18:00" required class="bg-black border border-white/15 rounded-lg px-2 py-1 text-xs font-mono-tech text-white focus:border-[var(--accent)] outline-none" />
+                <input id="newEventTitle" type="text" placeholder="Focus block or call..." required maxlength="36" class="flex-1 bg-black border border-white/15 rounded-lg px-2.5 py-1 text-xs text-white focus:border-[var(--accent)] outline-none" />
+              </div>
+              <div class="flex items-center justify-between pt-1">
+                <select id="newEventTag" class="bg-black border border-white/15 rounded-lg px-2 py-1 text-[11px] font-mono-tech text-[var(--text-muted)] outline-none">
+                  <option value="DEEP WORK">DEEP WORK</option>
+                  <option value="SYNC">SYNC / CALL</option>
+                  <option value="STANDUP">STANDUP</option>
+                  <option value="BREAK">RECOVERY</option>
+                </select>
+                <div class="flex gap-1.5">
+                  <button id="cancelAddEventBtn" type="button" class="px-2.5 py-1 rounded-lg text-[11px] font-mono-tech text-slate-400 hover:text-white">CANCEL</button>
+                  <button type="submit" class="px-3 py-1 rounded-lg text-[11px] font-mono-tech accent-pill font-semibold">SAVE</button>
+                </div>
+              </div>
+            </form>
+
+            <!-- Vertical Timeline List -->
+            <div id="timelineContainer" class="space-y-2.5 max-h-52 overflow-y-auto pr-1">
+              <!-- Populated by JS -->
+            </div>
+          </div>
+
+          <div class="mt-3 pt-2.5 border-t border-white/5 flex items-center justify-between text-[11px] font-mono-tech text-[var(--text-muted)]">
+            <span>ACTIVE BLOCK</span>
+            <span id="activeBlockSummary" class="text-[var(--text-main)] truncate max-w-[190px]">Architecture & OLED UI Polish</span>
+          </div>
+        </div>
+
+        <!-- Module 2B: Pomodoro "Ember" Focus Timer -->
+        <div class="oled-card rounded-3xl p-5 flex flex-col justify-between relative overflow-hidden">
+          <!-- Subtle glowing ember background orb that scales with remaining heat -->
+          <div id="emberGlowOrb" class="absolute -bottom-10 left-1/2 -translate-x-1/2 w-48 h-24 rounded-full pointer-events-none transition-all duration-1000" style="background: radial-gradient(circle, var(--accent-glow) 0%, transparent 72%); opacity: 0.55;"></div>
+
+          <div class="relative z-10 flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 accent-text" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clip-rule="evenodd"/></svg>
+              <h3 class="font-mono-tech text-xs uppercase tracking-widest text-[var(--text-muted)]">POMODORO EMBER</h3>
+            </div>
+            <!-- Duration Presets -->
+            <div class="flex items-center gap-1 font-mono-tech text-[10px]">
+              <button id="emberPreset25" type="button" data-ember-mins="25" class="px-2 py-0.5 rounded-full accent-pill">25M</button>
+              <button id="emberPreset15" type="button" data-ember-mins="15" class="px-2 py-0.5 rounded-full bg-white/5 text-slate-400 hover:text-white">15M</button>
+              <button id="emberPreset5" type="button" data-ember-mins="5" class="px-2 py-0.5 rounded-full bg-white/5 text-slate-400 hover:text-white">5M</button>
+            </div>
+          </div>
+
+          <div class="relative z-10 flex items-center justify-between my-1">
+            <div>
+              <div id="emberTimeReadout" class="font-display text-3xl sm:text-4xl font-bold tracking-tight accent-glow-text">25:00</div>
+              <p id="emberStateText" class="font-mono-tech text-[11px] text-[var(--text-muted)]">EMBER READY · ZERO GLARE CHIME</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="emberStartPauseBtn" type="button" class="px-3.5 py-2 rounded-2xl accent-pill font-mono-tech text-xs font-semibold hover:opacity-90 transition-all">
+                IGNITE
+              </button>
+              <button id="emberResetBtn" type="button" class="p-2 rounded-2xl bg-white/5 hover:bg-white/10 text-slate-300 transition-colors" title="Reset Ember">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Glowing Coal / Hourglass Ember Bar -->
+          <div class="relative z-10 w-full h-2 bg-white/5 rounded-full overflow-hidden mt-2">
+            <div id="emberProgressBar" class="h-full rounded-full transition-all duration-500" style="width: 100%; background: linear-gradient(90deg, #4A0000, var(--accent), var(--accent-secondary)); box-shadow: 0 0 14px var(--accent);"></div>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ================================================================= -->
+      <!-- RIGHT ZONE (4 COLS): TACTILE MEDIA WAVEFORM & ENVIRONMENT SENSORS -->
+      <!-- ================================================================= -->
+      <section class="proximity-secondary lg:col-span-4 flex flex-col gap-4 sm:gap-5 justify-between">
+        
+        <!-- Module 3A: Tactile Media Player with Radial Vignette & 60fps Audio Waveform -->
+        <div class="oled-card rounded-3xl p-5 flex-1 flex flex-col justify-between relative overflow-hidden">
+          <div class="flex items-center justify-between z-10 mb-2">
+            <div class="flex items-center gap-2">
+              <span id="audioLiveDot" class="w-2 h-2 rounded-full bg-[var(--accent)]"></span>
+              <h3 class="font-mono-tech text-xs uppercase tracking-widest text-[var(--text-muted)]">TACTILE AUDIO</h3>
+            </div>
+            <button id="synthSoundToggleBtn" type="button" class="px-2.5 py-0.5 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-mono-tech text-[var(--text-muted)] transition-colors" title="Toggle procedural Web Audio ambient synth drone">
+              AMBIENT SYNTH: OFF
+            </button>
+          </div>
+
+          <!-- Album Art with True-Black Radial Vignette + Track Details -->
+          <div class="flex items-center gap-4 my-1 z-10">
+            <div class="album-vignette w-20 h-20 sm:w-24 sm:h-24 rounded-2xl flex-shrink-0 bg-black border border-white/5">
+              <img id="albumCoverImg" src="assets/cover-eclipse.jpg" alt="Album Cover" class="w-full h-full object-cover max-w-full h-auto" />
+            </div>
+            <div class="min-w-0 flex-1">
+              <span id="trackAlbumTag" class="font-mono-tech text-[10px] uppercase tracking-widest accent-text">OLED AMBIENT SESSIONS</span>
+              <h4 id="trackTitle" class="font-display text-base sm:text-lg font-semibold text-[var(--text-main)] truncate mt-0.5">Solaris Horizon (432Hz Drift)</h4>
+              <p id="trackArtist" class="text-xs text-[var(--text-muted)] truncate">Aether & Obsidian</p>
+              
+              <!-- Tactile Transport Controls -->
+              <div class="flex items-center gap-2 mt-2.5">
+                <button id="prevTrackBtn" type="button" class="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-[var(--text-main)] transition-colors" title="Previous Track">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M8.445 14.832A1 1 0 0010 14v-2.798l5.445 3.63A1 1 0 0017 14V6a1 1 0 00-1.555-.832L10 8.798V6a1 1 0 00-1.555-.832l-6 4a1 1 0 000 1.664l6 4z"/></svg>
+                </button>
+                <button id="playPauseMediaBtn" type="button" class="px-3.5 py-1.5 rounded-xl accent-pill font-mono-tech text-xs font-semibold flex items-center gap-1.5">
+                  <span id="playPauseMediaLabel">PLAY</span>
+                </button>
+                <button id="nextTrackBtn" type="button" class="p-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-[var(--text-main)] transition-colors" title="Next Track">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M4.555 5.168A1 1 0 003 6v8a1 1 0 001.555.832L10 11.202V14a1 1 0 001.555.832l6-4a1 1 0 000-1.664l-6-4A1 1 0 0010 6v2.798L4.555 5.168z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- 60fps Real-Time Audio Waveform Visualizer -->
+          <div class="mt-2 pt-2 border-t border-white/5 z-10">
+            <div class="relative h-12 w-full">
+              <canvas id="waveformCanvas" class="w-full h-full block"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <!-- Module 3B: Local Weather, AQI & Room Climate Telemetry -->
+        <div class="oled-card rounded-3xl p-5 flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2">
+              <svg class="w-3.5 h-3.5 accent-text" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"/></svg>
+              <h3 id="weatherCityLabel" class="font-mono-tech text-xs uppercase tracking-widest text-[var(--text-muted)]">KOLKATA · ATMOSPHERE</h3>
+            </div>
+            <button id="cycleCityBtn" type="button" class="px-2 py-0.5 rounded-full bg-white/5 hover:bg-white/10 text-[10px] font-mono-tech text-[var(--text-muted)] transition-colors" title="Switch weather station city">
+              CHANGE CITY
+            </button>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2 my-1">
+            <!-- Outdoor Temp -->
+            <div class="p-2.5 rounded-2xl bg-black border border-white/5">
+              <span class="font-mono-tech text-[10px] text-[var(--text-muted)] block">OUTSIDE</span>
+              <div id="outdoorTempVal" class="font-display text-xl sm:text-2xl font-bold text-[var(--text-main)] mt-0.5">26°C</div>
+              <span id="outdoorCondText" class="font-mono-tech text-[10px] accent-text">Hazy Clear</span>
+            </div>
+
+            <!-- Air Quality Index -->
+            <div class="p-2.5 rounded-2xl bg-black border border-white/5">
+              <span class="font-mono-tech text-[10px] text-[var(--text-muted)] block">AIR QUALITY</span>
+              <div id="aqiVal" class="font-display text-xl sm:text-2xl font-bold text-[var(--text-main)] mt-0.5">42</div>
+              <span id="aqiStatusText" class="font-mono-tech text-[10px] text-emerald-400">Good AQI</span>
+            </div>
+
+            <!-- Indoor Desk Sensor -->
+            <div class="p-2.5 rounded-2xl bg-black border border-white/5">
+              <span class="font-mono-tech text-[10px] text-[var(--text-muted)] block">DESK ROOM</span>
+              <div id="indoorTempVal" class="font-display text-xl sm:text-2xl font-bold text-[var(--text-main)] mt-0.5">23.4°</div>
+              <span id="indoorHumidText" class="font-mono-tech text-[10px] text-[var(--text-muted)]">48% RH</span>
+            </div>
+          </div>
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- BOTTOM MINIMALIST DOCK FOOTER & PROXIMITY STATUS -->
+  <footer class="proximity-hud relative z-40 w-full max-w-7xl mx-auto px-4 sm:px-6 pb-3 pt-1 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono-tech text-[var(--text-muted)] transition-opacity duration-500">
+    <div class="flex items-center gap-3">
+      <span id="proximityStatusLabel">RADAR: DESK REACH (ACTIVE)</span>
+      <span class="hidden sm:inline text-white/20">·</span>
+      <span id="wakeLockStatusLabel" class="hidden sm:inline">WAKE LOCK: STANDBY</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <button id="cameraRadarBtn" type="button" class="hover:text-[var(--accent)] transition-colors">
+        [ENABLE WEBCAM PROXIMITY SENSOR]
+      </button>
+      <span class="text-white/20">·</span>
+      <span>IDLE AUTO-DIM: 45S</span>
+    </div>
+  </footer>
+
+  <!-- HIDDEN VIDEO & CANVAS FOR OPTIONAL WEBCAM MOTION RADAR -->
+  <video id="radarVideo" class="hidden" playsinline muted></video>
+  <canvas id="radarDiffCanvas" width="32" height="24" class="hidden"></canvas>
+
+  <!-- TOAST NOTIFICATION PILL -->
+  <div id="dockToast" class="fixed bottom-12 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-full oled-card font-mono-tech text-xs accent-text opacity-0 pointer-events-none transition-all duration-300">
+    Stand-Dock Ready
+  </div>
+
+  <script>
+    (function () {
+      // =========================================================================
+      // 1. STATE & CONFIGURATION
+      // =========================================================================
+      const TRACKS = [
+        {
+          title: "Solaris Horizon (432Hz Drift)",
+          artist: "Aether & Obsidian",
+          tag: "OLED AMBIENT SESSIONS",
+          cover: "assets/cover-eclipse.jpg",
+          baseFreq: 110
+        },
+        {
+          title: "Nocturne in Crimson Wireframe",
+          artist: "Sub-Zero Modular",
+          tag: "MIDNIGHT SYNTHESIS",
+          cover: "assets/cover-horizon.jpg",
+          baseFreq: 82.41
+        }
+      ];
+
+      const CITIES = [
+        { name: "KOLKATA", lat: 22.5726, lon: 88.3639, fallbackTemp: "26°C", fallbackCond: "Clear Night", aqi: 46, aqiLabel: "Good AQI" },
+        { name: "TOKYO", lat: 35.6762, lon: 139.6503, fallbackTemp: "18°C", fallbackCond: "Light Mist", aqi: 24, aqiLabel: "Pure Air" },
+        { name: "REYKJAVIK", lat: 64.1466, lon: -21.9426, fallbackTemp: "4°C", fallbackCond: "Aurora Sky", aqi: 12, aqiLabel: "Pristine" },
+        { name: "SAN FRANCISCO", lat: 37.7749, lon: -122.4194, fallbackTemp: "16°C", fallbackCond: "Coastal Fog", aqi: 31, aqiLabel: "Good AQI" }
+      ];
+
+      const DEFAULT_TIMELINE = [
+        { id: "ev-1", time: "17:00", title: "Architecture & OLED UI Polish", tag: "DEEP WORK", done: false },
+        { id: "ev-2", time: "18:15", title: "Cloudflare Edge Deploy Sync", tag: "SYNC", done: false },
+        { id: "ev-3", time: "19:30", title: "Evening Decompression Walk", tag: "BREAK", done: false }
+      ];
+
+      const DEFAULT_VIP_SIGNALS = [
+        { id: "vip-1", name: "Ari (Design Lead)", color: "#00F0FF", angle: 42, note: "Shared updated Figma shaders" },
+        { id: "vip-2", name: "Nadia (Core Eng)", color: "#FF8C00", angle: 155, note: "Cloudflare build succeeded" },
+        { id: "vip-3", name: "Home Hub", color: "#10B981", angle: 285, note: "Night mode armed · 23.4°C" }
+      ];
+
+      let state = {
+        use24Hour: true,
+        themeMode: "amber", // 'daylight' | 'amber' | 'midnight' | 'auto'
+        weatherShader: "rain", // 'rain' | 'golden' | 'stars' | 'off'
+        proximity: "near", // 'away' | 'across' | 'near'
+        driftMultiplier: 1,
+        driftPhase: 0,
+        trackIndex: 0,
+        isPlayingMedia: true,
+        synthAudioEnabled: false,
+        cityIndex: 0,
+        emberTotalSeconds: 25 * 60,
+        emberRemainingSeconds: 25 * 60,
+        emberRunning: false,
+        timeline: [],
+        vipSignals: [],
+        selectedVipId: null,
+        lastActivityTime: Date.now(),
+        webcamRadarActive: false
+      };
+
+      // Load saved timeline from localStorage safely
+      try {
+        const savedEvents = localStorage.getItem("stand_dock_timeline_v1");
+        state.timeline = savedEvents ? JSON.parse(savedEvents) : DEFAULT_TIMELINE.slice();
+      } catch (e) {
+        state.timeline = DEFAULT_TIMELINE.slice();
+      }
+
+      state.vipSignals = DEFAULT_VIP_SIGNALS.slice();
+
+      function saveTimeline() {
+        try {
+          localStorage.setItem("stand_dock_timeline_v1", JSON.stringify(state.timeline));
+        } catch (e) {
+          // Ignore storage block in restricted iframe
+        }
+      }
+
+      function showToast(msg) {
+        const toast = document.getElementById("dockToast");
+        if (!toast) return;
+        toast.textContent = msg;
+        toast.style.opacity = "1";
+        clearTimeout(window.__toastTimer);
+        window.__toastTimer = setTimeout(() => {
+          toast.style.opacity = "0";
+        }, 2400);
+      }
+
+      // =========================================================================
+      // 2. BAUHAUS CHRONO-DIAL & WAKING HORIZON CLOCK
+      // =========================================================================
+      function buildClockTicks() {
+        const ticksGroup = document.getElementById("clockTicks");
+        if (!ticksGroup) return;
+        let svgHtml = "";
+        for (let i = 0; i < 60; i++) {
+          const angle = (i * 6) * (Math.PI / 180);
+          const isMajor = i % 5 === 0;
+          const rInner = isMajor ? 88 : 93;
+          const rOuter = 96;
+          const x1 = 120 + rInner * Math.cos(angle);
+          const y1 = 120 + rInner * Math.sin(angle);
+          const x2 = 120 + rOuter * Math.cos(angle);
+          const y2 = 120 + rOuter * Math.sin(angle);
+          const opacity = isMajor ? "0.35" : "0.12";
+          const width = isMajor ? "1.8" : "1";
+          svgHtml += `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="currentColor" stroke-opacity="${opacity}" stroke-width="${width}" />`;
+        }
+        ticksGroup.innerHTML = svgHtml;
+      }
+
+      function updateClock() {
+        const now = new Date();
+        const rawHours = now.getHours();
+        const mins = now.getMinutes();
+        const secs = now.getSeconds();
+        const ms = now.getMilliseconds();
+
+        // Auto circadian theme check
+        if (state.themeMode === "auto") {
+          let target = "amber";
+          if (rawHours >= 7 && rawHours < 17) target = "daylight";
+          else if (rawHours >= 17 && rawHours < 23) target = "amber";
+          else target = "midnight";
+          document.body.setAttribute("data-theme", target);
+        }
+
+        let displayHours = rawHours;
+        const ampmEl = document.getElementById("clockAmPm");
+        if (!state.use24Hour) {
+          const suffix = rawHours >= 12 ? "PM" : "AM";
+          displayHours = rawHours % 12 || 12;
+          ampmEl.textContent = suffix;
+          ampmEl.classList.remove("hidden");
+        } else {
+          ampmEl.classList.add("hidden");
+        }
+
+        document.getElementById("clockHours").textContent = String(displayHours).padStart(2, "0");
+        document.getElementById("clockMinutes").textContent = String(mins).padStart(2, "0");
+        document.getElementById("clockSeconds").textContent = String(secs).padStart(2, "0") + "s";
+
+        // Smooth 60fps sweeping second hand arc
+        const smoothSeconds = secs + ms / 1000;
+        const circumference = 2 * Math.PI * 102; // ~640.88
+        const offset = circumference - (smoothSeconds / 60) * circumference;
+        const arc = document.getElementById("secondsArc");
+        if (arc) arc.style.strokeDashoffset = offset.toFixed(2);
+
+        // Second hand tip dot position (in SVG coordinates prior to -90deg rotation)
+        const angleRad = (smoothSeconds / 60) * 2 * Math.PI;
+        const tipX = 120 + 102 * Math.cos(angleRad);
+        const tipY = 120 + 102 * Math.sin(angleRad);
+        const tipDot = document.getElementById("secondTipDot");
+        if (tipDot) {
+          tipDot.setAttribute("cx", tipX.toFixed(2));
+          tipDot.setAttribute("cy", tipY.toFixed(2));
+        }
+
+        // Date header
+        const dayNames = ["SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY", "THURSDAY", "FRIDAY", "SATURDAY"];
+        const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+        document.getElementById("dateDayName").textContent = dayNames[now.getDay()];
+        document.getElementById("dateFullText").textContent = `${monthNames[now.getMonth()]} ${String(now.getDate()).padStart(2, "0")}, ${now.getFullYear()}`;
+
+        // Waking day progress (07:00 to 23:00 = 16 hours = 960 mins)
+        const totalMinutesNow = rawHours * 60 + mins;
+        const wakeStart = 7 * 60;
+        const wakeEnd = 23 * 60;
+        let pctRemaining = 0;
+        let minsLeft = 0;
+        if (totalMinutesNow <= wakeStart) {
+          pctRemaining = 100;
+          minsLeft = wakeEnd - wakeStart;
+        } else if (totalMinutesNow >= wakeEnd) {
+          pctRemaining = 0;
+          minsLeft = 0;
+        } else {
+          minsLeft = wakeEnd - totalMinutesNow;
+          pctRemaining = Math.round((minsLeft / (wakeEnd - wakeStart)) * 100);
+        }
+        const hLeft = Math.floor(minsLeft / 60);
+        const mLeft = minsLeft % 60;
+        document.getElementById("dayLeftText").textContent =
+          minsLeft > 0 ? `${hLeft}h ${mLeft}m left (${pctRemaining}%)` : "Rest Window (0%)";
+        document.getElementById("dayProgressBar").style.width = `${pctRemaining}%`;
+      }
+
+      // =========================================================================
+      // 3. ORBITAL VIP AMBIENT SIGNALS
+      // =========================================================================
+      function renderVipSignals() {
+        const group = document.getElementById("vipOrbitalGroup");
+        const drawer = document.getElementById("vipSignalDrawer");
+        if (!group || !drawer) return;
+
+        let dotsSvg = "";
+        state.vipSignals.forEach((sig) => {
+          const rad = (sig.angle * Math.PI) / 180;
+          const cx = 120 + 114 * Math.cos(rad);
+          const cy = 120 + 114 * Math.sin(rad);
+          dotsSvg += `
+            <g class="cursor-pointer" data-vip-id="${sig.id}">
+              <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="8" fill="${sig.color}" fill-opacity="0.18" />
+              <circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="4.2" fill="${sig.color}" style="filter: drop-shadow(0 0 6px ${sig.color});" />
+            </g>
+          `;
+        });
+        group.innerHTML = dotsSvg;
+
+        if (state.vipSignals.length === 0) {
+          drawer.innerHTML = `<span class="font-mono-tech text-[10px] text-[var(--text-muted)]">ZERO UNREAD ORBITAL SIGNALS</span>`;
+          return;
+        }
+
+        drawer.innerHTML = state.vipSignals
+          .map((sig) => {
+            const isSelected = state.selectedVipId === sig.id;
+            return `
+              <button type="button" data-vip-chip="${sig.id}" class="px-2.5 py-1 rounded-full bg-black border border-white/10 hover:border-white/30 flex items-center gap-1.5 text-[10px] font-mono-tech transition-all">
+                <span class="w-2 h-2 rounded-full" style="background:${sig.color}; box-shadow: 0 0 6px ${sig.color};"></span>
+                <span class="text-[var(--text-main)]">${sig.name}</span>
+                ${isSelected ? `<span class="text-[var(--text-muted)]">· ${sig.note} (Click to clear)</span>` : ""}
+              </button>
+            `;
+          })
+          .join("");
+      }
+
+      // =========================================================================
+      // 4. NEXT-UP 3H TIMELINE
+      // =========================================================================
+      function renderTimeline() {
+        const container = document.getElementById("timelineContainer");
+        if (!container) return;
+
+        if (state.timeline.length === 0) {
+          container.innerHTML = `<div class="p-4 rounded-2xl bg-black/60 border border-white/5 text-center font-mono-tech text-xs text-[var(--text-muted)]">Clear horizon for the next 3 hours.</div>`;
+          document.getElementById("activeBlockSummary").textContent = "Open Horizon";
+          return;
+        }
+
+        const sorted = state.timeline.slice().sort((a, b) => a.time.localeCompare(b.time));
+        const firstActive = sorted.find((item) => !item.done) || sorted[0];
+        document.getElementById("activeBlockSummary").textContent = firstActive ? firstActive.title : "Open Horizon";
+
+        container.innerHTML = sorted
+          .map((item, idx) => {
+            const isCurrent = idx === 0 && !item.done;
+            return `
+              <div class="p-3 rounded-2xl bg-black border ${isCurrent ? "border-[var(--accent)]" : "border-white/10"} flex items-center justify-between gap-2 transition-all">
+                <div class="flex items-center gap-3 min-w-0">
+                  <button type="button" data-toggle-event="${item.id}" class="w-4 h-4 rounded-full border ${item.done ? "bg-[var(--accent)] border-[var(--accent)]" : "border-white/30"} flex items-center justify-center flex-shrink-0" title="Complete block">
+                    ${item.done ? `<svg class="w-2.5 h-2.5 text-black" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>` : ""}
+                  </button>
+                  <div class="min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="font-mono-tech text-xs font-semibold accent-text">${item.time}</span>
+                      <span class="px-1.5 py-0.2 rounded text-[9px] font-mono-tech bg-white/5 text-[var(--text-muted)]">${item.tag}</span>
+                    </div>
+                    <p class="text-xs sm:text-sm font-medium ${item.done ? "line-through text-white/30" : "text-[var(--text-main)]"} truncate mt-0.5">${item.title}</p>
+                  </div>
+                </div>
+                <button type="button" data-delete-event="${item.id}" class="text-white/25 hover:text-rose-400 p-1 text-xs font-mono-tech" title="Remove">✕</button>
+              </div>
+            `;
+          })
+          .join("");
+      }
+
+      // =========================================================================
+      // 5. POMODORO EMBER TIMER & SOFT CHIME
+      // =========================================================================
+      function updateEmberUI() {
+        const mins = Math.floor(state.emberRemainingSeconds / 60);
+        const secs = state.emberRemainingSeconds % 60;
+        document.getElementById("emberTimeReadout").textContent =
+          `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+
+        const pct = state.emberTotalSeconds > 0
+          ? Math.max(0, (state.emberRemainingSeconds / state.emberTotalSeconds) * 100)
+          : 0;
+        document.getElementById("emberProgressBar").style.width = `${pct}%`;
+
+        const orb = document.getElementById("emberGlowOrb");
+        if (orb) {
+          orb.style.opacity = (0.15 + (pct / 100) * 0.65).toFixed(2);
+        }
+
+        const btn = document.getElementById("emberStartPauseBtn");
+        btn.textContent = state.emberRunning ? "PAUSE" : "IGNITE";
+      }
+
+      function playEmberCompletionChime() {
+        try {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (!AudioCtx) return;
+          const ctx = new AudioCtx();
+          const now = ctx.currentTime;
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(528, now);
+          osc.frequency.exponentialRampToValueAtTime(264, now + 2.4);
+          gain.gain.setValueAtTime(0.001, now);
+          gain.gain.linearRampToValueAtTime(0.15, now + 0.1);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + 2.5);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(now);
+          osc.stop(now + 2.5);
+        } catch (e) {}
+      }
+
+      setInterval(() => {
+        if (!state.emberRunning) return;
+        if (state.emberRemainingSeconds > 0) {
+          state.emberRemainingSeconds -= 1;
+          updateEmberUI();
+        } else {
+          state.emberRunning = false;
+          document.getElementById("emberStateText").textContent = "SESSION COMPLETE · EMBER COOLED";
+          const edge = document.getElementById("emberEdgeOverlay");
+          edge.classList.add("ember-alert-pulse");
+          edge.style.opacity = "1";
+          playEmberCompletionChime();
+          updateEmberUI();
+          setTimeout(() => {
+            edge.style.opacity = "0";
+            edge.classList.remove("ember-alert-pulse");
+          }, 7000);
+        }
+      }, 1000);
+
+      // =========================================================================
+      // 6. LISSAJOUS PIXEL-SHIFTER (BURN-IN PROTECTION)
+      // =========================================================================
+      function updatePixelDrift() {
+        state.driftPhase += 0.012 * state.driftMultiplier;
+        // Lissajous curve: x = A sin(3t), y = B cos(2t) bounded to +/- 2.5px (or +/- 7px in 15x demo mode)
+        const amp = state.driftMultiplier > 1 ? 6.0 : 2.0;
+        const dx = amp * Math.sin(3 * state.driftPhase);
+        const dy = amp * Math.cos(2 * state.driftPhase);
+
+        const container = document.getElementById("pixelShiftContainer");
+        if (container) {
+          container.style.transform = `translate3d(${dx.toFixed(2)}px, ${dy.toFixed(2)}px, 0)`;
+        }
+        const readout = document.getElementById("driftCoordReadout");
+        if (readout) {
+          const sx = dx >= 0 ? `+${dx.toFixed(1)}` : dx.toFixed(1);
+          const sy = dy >= 0 ? `+${dy.toFixed(1)}` : dy.toFixed(1);
+          readout.textContent = `${sx}px, ${sy}px`;
+        }
+      }
+
+      // =========================================================================
+      // 7. TACTILE MEDIA & WEB AUDIO AMBIENT SYNTH + 60FPS WAVEFORM
+      // =========================================================================
+      let audioCtx = null;
+      let droneOsc1 = null;
+      let droneOsc2 = null;
+      let droneGain = null;
+
+      function updateTrackDisplay() {
+        const track = TRACKS[state.trackIndex];
+        document.getElementById("albumCoverImg").src = track.cover;
+        document.getElementById("trackTitle").textContent = track.title;
+        document.getElementById("trackArtist").textContent = track.artist;
+        document.getElementById("trackAlbumTag").textContent = track.tag;
+        document.getElementById("playPauseMediaLabel").textContent = state.isPlayingMedia ? "PAUSE" : "PLAY";
+        if (droneOsc1 && audioCtx) {
+          droneOsc1.frequency.setTargetAtTime(track.baseFreq, audioCtx.currentTime, 0.2);
+          droneOsc2.frequency.setTargetAtTime(track.baseFreq * 1.5, audioCtx.currentTime, 0.2);
+        }
+      }
+
+      function toggleAmbientSynth() {
+        const btn = document.getElementById("synthSoundToggleBtn");
+        if (!state.synthAudioEnabled) {
+          try {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!audioCtx) audioCtx = new AudioContextClass();
+            if (audioCtx.state === "suspended") audioCtx.resume();
+
+            const track = TRACKS[state.trackIndex];
+            droneOsc1 = audioCtx.createOscillator();
+            droneOsc2 = audioCtx.createOscillator();
+            droneGain = audioCtx.createGain();
+
+            droneOsc1.type = "sine";
+            droneOsc2.type = "triangle";
+            droneOsc1.frequency.value = track.baseFreq;
+            droneOsc2.frequency.value = track.baseFreq * 1.5;
+
+            droneGain.gain.value = state.isPlayingMedia ? 0.04 : 0.0;
+            droneOsc1.connect(droneGain);
+            droneOsc2.connect(droneGain);
+            droneGain.connect(audioCtx.destination);
+
+            droneOsc1.start();
+            droneOsc2.start();
+            state.synthAudioEnabled = true;
+            btn.textContent = "AMBIENT SYNTH: ON";
+            btn.classList.add("accent-text");
+            showToast("Ambient 432Hz OLED Synth Enabled");
+          } catch (e) {
+            showToast("Browser blocked audio before interaction");
+          }
+        } else {
+          if (droneOsc1) {
+            try { droneOsc1.stop(); droneOsc2.stop(); } catch (e) {}
+            droneOsc1 = null;
+            droneOsc2 = null;
+          }
+          state.synthAudioEnabled = false;
+          btn.textContent = "AMBIENT SYNTH: OFF";
+          btn.classList.remove("accent-text");
+        }
+      }
+
+      // Waveform & Bezel Weather Shaders Animation Loop
+      const waveCanvas = document.getElementById("waveformCanvas");
+      const waveCtx = waveCanvas.getContext("2d");
+      const shaderCanvas = document.getElementById("weatherShaderCanvas");
+      const shaderCtx = shaderCanvas.getContext("2d");
+
+      let raindrops = [];
+      let stars = [];
+
+      function resizeCanvases() {
+        if (waveCanvas) {
+          const rect = waveCanvas.parentElement.getBoundingClientRect();
+          waveCanvas.width = rect.width || 300;
+          waveCanvas.height = rect.height || 48;
+        }
+        if (shaderCanvas) {
+          shaderCanvas.width = window.innerWidth;
+          shaderCanvas.height = window.innerHeight;
+        }
+        // Re-seed edge particles
+        raindrops = Array.from({ length: 34 }, () => ({
+          side: Math.random() > 0.5 ? "left" : "right",
+          y: Math.random() * window.innerHeight,
+          speed: 1.5 + Math.random() * 2.5,
+          len: 10 + Math.random() * 18,
+          alpha: 0.2 + Math.random() * 0.45
+        }));
+        stars = Array.from({ length: 42 }, () => ({
+          x: Math.random() * window.innerWidth,
+          y: Math.random() * 26,
+          r: 0.8 + Math.random() * 1.4,
+          phase: Math.random() * Math.PI * 2
+        }));
+      }
+
+      let animTick = 0;
+      function renderFrame() {
+        animTick += 0.045;
+        updateClock();
+
+        // 1. Draw 60fps Audio Waveform
+        if (waveCtx && waveCanvas.width > 0) {
+          const w = waveCanvas.width;
+          const h = waveCanvas.height;
+          waveCtx.clearRect(0, 0, w, h);
+
+          const accentColor = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#FF8C00";
+          const bars = 38;
+          const gap = 3;
+          const barW = Math.max(2, (w - (bars - 1) * gap) / bars);
+
+          for (let i = 0; i < bars; i++) {
+            const norm = i / bars;
+            const envelope = Math.sin(norm * Math.PI);
+            const activeWave = state.isPlayingMedia
+              ? (Math.sin(animTick * 2.2 + i * 0.45) * 0.45 + Math.cos(animTick * 1.3 - i * 0.3) * 0.35 + 0.25)
+              : 0.08;
+            const barH = Math.max(3, activeWave * envelope * (h * 0.88));
+            const x = i * (barW + gap);
+            const y = (h - barH) / 2;
+
+            waveCtx.fillStyle = accentColor;
+            waveCtx.globalAlpha = state.isPlayingMedia ? (0.35 + envelope * 0.65) : 0.22;
+            waveCtx.beginPath();
+            waveCtx.roundRect(x, y, barW, barH, 2);
+            waveCtx.fill();
+          }
+          waveCtx.globalAlpha = 1;
+        }
+
+        // 2. Draw Bezel Edge Weather Shaders
+        if (shaderCtx && shaderCanvas.width > 0) {
+          const sw = shaderCanvas.width;
+          const sh = shaderCanvas.height;
+          shaderCtx.clearRect(0, 0, sw, sh);
+
+          if (state.weatherShader === "rain") {
+            shaderCtx.strokeStyle = "#00F0FF";
+            shaderCtx.lineWidth = 1.5;
+            raindrops.forEach((drop) => {
+              drop.y += drop.speed;
+              if (drop.y > sh) drop.y = -20;
+              const x = drop.side === "left" ? 6 : sw - 6;
+              shaderCtx.globalAlpha = drop.alpha;
+              shaderCtx.beginPath();
+              shaderCtx.moveTo(x, drop.y);
+              shaderCtx.lineTo(x, drop.y + drop.len);
+              shaderCtx.stroke();
+            });
+            shaderCtx.globalAlpha = 1;
+          } else if (state.weatherShader === "golden") {
+            const grad = shaderCtx.createLinearGradient(0, 0, 0, 28);
+            grad.addColorStop(0, "rgba(255, 140, 0, 0.36)");
+            grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+            shaderCtx.fillStyle = grad;
+            shaderCtx.fillRect(0, 0, sw, 28);
+          } else if (state.weatherShader === "stars") {
+            stars.forEach((st) => {
+              const twinkle = 0.2 + 0.6 * (0.5 + 0.5 * Math.sin(animTick * 0.8 + st.phase));
+              shaderCtx.fillStyle = "#FFF5EB";
+              shaderCtx.globalAlpha = twinkle;
+              shaderCtx.beginPath();
+              shaderCtx.arc(st.x, st.y, st.r, 0, Math.PI * 2);
+              shaderCtx.fill();
+            });
+            shaderCtx.globalAlpha = 1;
+          }
+        }
+
+        requestAnimationFrame(renderFrame);
+      }
+
+      // =========================================================================
+      // 8. LOCAL WEATHER FETCH (OPEN-METEO WITH INSTANT FALLBACK)
+      // =========================================================================
+      async function updateWeatherForCity() {
+        const city = CITIES[state.cityIndex];
+        document.getElementById("weatherCityLabel").textContent = `${city.name} · ATMOSPHERE`;
+        document.getElementById("outdoorTempVal").textContent = city.fallbackTemp;
+        document.getElementById("outdoorCondText").textContent = city.fallbackCond;
+        document.getElementById("aqiVal").textContent = String(city.aqi);
+        document.getElementById("aqiStatusText").textContent = city.aqiLabel;
+
+        try {
+          const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.lat}&longitude=${city.lon}&current_weather=true`;
+          const res = await fetch(url);
+          if (res.ok) {
+            const data = await res.json();
+            if (data && data.current_weather) {
+              const temp = Math.round(data.current_weather.temperature);
+              document.getElementById("outdoorTempVal").textContent = `${temp}°C`;
+            }
+          }
+        } catch (e) {
+          // Graceful fallback already populated
+        }
+      }
+
+      // =========================================================================
+      // 9. PROXIMITY RADAR & WEBCAM MOTION SENSOR
+      // =========================================================================
+      function setProximityMode(mode) {
+        state.proximity = mode;
+        document.body.setAttribute("data-proximity", mode);
+        document.querySelectorAll("[data-prox-select]").forEach((btn) => {
+          if (btn.getAttribute("data-prox-select") === mode) {
+            btn.className = "px-2 py-1 rounded-full transition-all accent-pill";
+          } else {
+            btn.className = "px-2 py-1 rounded-full transition-all text-slate-400 hover:text-white";
+          }
+        });
+
+        const ratioEl = document.getElementById("blackPixelRatio");
+        const statusEl = document.getElementById("proximityStatusLabel");
+        if (mode === "away") {
+          ratioEl.textContent = "98.6%";
+          statusEl.textContent = "RADAR: DEEP AWAY (98% DARK)";
+        } else if (mode === "across") {
+          ratioEl.textContent = "96.1%";
+          statusEl.textContent = "RADAR: ACROSS ROOM (AMBIENT)";
+        } else {
+          ratioEl.textContent = "94.2%";
+          statusEl.textContent = "RADAR: DESK REACH (ACTIVE)";
+        }
+      }
+
+      // Wake up to 'near' on pointer activity
+      function registerUserPresence() {
+        state.lastActivityTime = Date.now();
+        if (state.proximity === "away") {
+          setProximityMode("near");
+        }
+      }
+
+      window.addEventListener("mousemove", registerUserPresence, { passive: true });
+      window.addEventListener("touchstart", registerUserPresence, { passive: true });
+      window.addEventListener("keydown", registerUserPresence, { passive: true });
+
+      // Optional Webcam Motion Radar
+      let prevFrameData = null;
+      async function toggleWebcamRadar() {
+        const btn = document.getElementById("cameraRadarBtn");
+        const video = document.getElementById("radarVideo");
+        const diffCanvas = document.getElementById("radarDiffCanvas");
+        if (!state.webcamRadarActive) {
+          try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 64, height: 48 } });
+            video.srcObject = stream;
+            await video.play();
+            state.webcamRadarActive = true;
+            btn.textContent = "[WEBCAM RADAR: ACTIVE]";
+            btn.classList.add("accent-text");
+            showToast("Webcam Proximity Radar Armed");
+
+            const dCtx = diffCanvas.getContext("2d");
+            window.__radarInterval = setInterval(() => {
+              if (!state.webcamRadarActive) return;
+              dCtx.drawImage(video, 0, 0, 32, 24);
+              const frame = dCtx.getImageData(0, 0, 32, 24).data;
+              if (prevFrameData) {
+                let diff = 0;
+                for (let i = 0; i < frame.length; i += 4) {
+                  diff += Math.abs(frame[i] - prevFrameData[i]);
+                }
+                const avgDiff = diff / (32 * 24);
+                if (avgDiff > 14) {
+                  setProximityMode("near");
+                } else if (avgDiff > 5) {
+                  setProximityMode("across");
+                }
+              }
+              prevFrameData = new Uint8ClampedArray(frame);
+            }, 800);
+          } catch (e) {
+            showToast("Camera unavailable in sandbox — using Pointer Radar");
+          }
+        } else {
+          state.webcamRadarActive = false;
+          clearInterval(window.__radarInterval);
+          if (video.srcObject) {
+            video.srcObject.getTracks().forEach((t) => t.stop());
+            video.srcObject = null;
+          }
+          btn.textContent = "[ENABLE WEBCAM PROXIMITY SENSOR]";
+          btn.classList.remove("accent-text");
+          showToast("Webcam Radar Disabled");
+        }
+      }
+
+      // =========================================================================
+      // 10. EVENT LISTENERS & CONTROLS WIRING
+      // =========================================================================
+      function wireControls() {
+        // Theme selector buttons
+        document.querySelectorAll("[data-theme-select]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const mode = btn.getAttribute("data-theme-select");
+            state.themeMode = mode;
+            if (mode !== "auto") {
+              document.body.setAttribute("data-theme", mode);
+            } else {
+              updateClock();
+            }
+            document.querySelectorAll("[data-theme-select]").forEach((b) => {
+              b.className = b === btn
+                ? "px-2.5 py-1 rounded-full transition-all accent-pill"
+                : "px-2.5 py-1 rounded-full transition-all text-slate-400 hover:text-white";
+            });
+          });
+        });
+
+        // Weather shader buttons
+        document.querySelectorAll("[data-weather-select]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const shader = btn.getAttribute("data-weather-select");
+            state.weatherShader = shader;
+            document.querySelectorAll("[data-weather-select]").forEach((b) => {
+              b.className = b === btn
+                ? "px-2.5 py-1 rounded-full transition-all accent-pill"
+                : "px-2.5 py-1 rounded-full transition-all text-slate-400 hover:text-white";
+            });
+          });
+        });
+
+        // Proximity mode buttons
+        document.querySelectorAll("[data-prox-select]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            setProximityMode(btn.getAttribute("data-prox-select"));
+          });
+        });
+
+        // Drift speed toggle
+        const driftBtn = document.getElementById("driftDemoBtn");
+        driftBtn.addEventListener("click", () => {
+          state.driftMultiplier = state.driftMultiplier === 1 ? 15 : 1;
+          driftBtn.textContent = `DRIFT: ${state.driftMultiplier}x`;
+          driftBtn.classList.toggle("accent-text", state.driftMultiplier > 1);
+          showToast(
+            state.driftMultiplier > 1
+              ? "15x Burn-In Lissajous Drift Preview Active"
+              : "Standard 1x Sub-Pixel Burn-In Protection"
+          );
+        });
+
+        // Fullscreen & Screen Wake Lock
+        document.getElementById("fullscreenBtn").addEventListener("click", async () => {
+          try {
+            if (!document.fullscreenElement) {
+              await document.documentElement.requestFullscreen();
+              document.getElementById("fullscreenLabel").textContent = "EXIT LOCK";
+            } else {
+              await document.exitFullscreen();
+              document.getElementById("fullscreenLabel").textContent = "DOCK LOCK";
+            }
+          } catch (e) {
+            showToast("Fullscreen toggled");
+          }
+          try {
+            if ("wakeLock" in navigator) {
+              await navigator.wakeLock.request("screen");
+              document.getElementById("wakeLockStatusLabel").textContent = "WAKE LOCK: ACTIVE";
+            }
+          } catch (e) {}
+        });
+
+        // 12H / 24H toggle
+        const fmtBtn = document.getElementById("toggleFormatBtn");
+        fmtBtn.addEventListener("click", () => {
+          state.use24Hour = !state.use24Hour;
+          fmtBtn.textContent = state.use24Hour ? "24H" : "12H";
+          updateClock();
+        });
+
+        // Add simulated VIP Orbital Signal
+        document.getElementById("addSignalBtn").addEventListener("click", () => {
+          const colors = ["#00F0FF", "#FF8C00", "#10B981", "#F43F5E", "#A855F7"];
+          const names = ["Maya (Product)", "Liam (SecOps)", "DevOps Bot", "Kiran (Studio)"];
+          const notes = ["Sent OLED shader PR", "Production deploy live", "Server load nominal", "Ready for design review"];
+          const idx = Math.floor(Math.random() * names.length);
+          const newSig = {
+            id: "vip-" + Date.now(),
+            name: names[idx],
+            color: colors[Math.floor(Math.random() * colors.length)],
+            angle: Math.floor(Math.random() * 340),
+            note: notes[idx]
+          };
+          state.vipSignals.push(newSig);
+          state.selectedVipId = newSig.id;
+          renderVipSignals();
+          showToast(`Orbital VIP Signal from ${newSig.name}`);
+        });
+
+        // Delegate clicks on VIP dots and chips
+        document.getElementById("chronoSvg").addEventListener("click", (e) => {
+          const g = e.target.closest("[data-vip-id]");
+          if (!g) return;
+          const id = g.getAttribute("data-vip-id");
+          state.selectedVipId = state.selectedVipId === id ? null : id;
+          renderVipSignals();
+        });
+
+        document.getElementById("vipSignalDrawer").addEventListener("click", (e) => {
+          const chip = e.target.closest("[data-vip-chip]");
+          if (!chip) return;
+          const id = chip.getAttribute("data-vip-chip");
+          if (state.selectedVipId === id) {
+            state.vipSignals = state.vipSignals.filter((s) => s.id !== id);
+            state.selectedVipId = null;
+          } else {
+            state.selectedVipId = id;
+          }
+          renderVipSignals();
+        });
+
+        // Timeline Add / Toggle / Delete
+        const addForm = document.getElementById("addEventForm");
+        document.getElementById("openAddEventBtn").addEventListener("click", () => {
+          addForm.classList.toggle("hidden");
+        });
+        document.getElementById("cancelAddEventBtn").addEventListener("click", () => {
+          addForm.classList.add("hidden");
+        });
+        addForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const timeVal = document.getElementById("newEventTime").value || "18:00";
+          const titleVal = document.getElementById("newEventTitle").value.trim();
+          const tagVal = document.getElementById("newEventTag").value;
+          if (!titleVal) return;
+          state.timeline.push({
+            id: "ev-" + Date.now(),
+            time: timeVal,
+            title: titleVal,
+            tag: tagVal,
+            done: false
+          });
+          document.getElementById("newEventTitle").value = "";
+          addForm.classList.add("hidden");
+          saveTimeline();
+          renderTimeline();
+          showToast("Timeline Block Added");
+        });
+
+        document.getElementById("timelineContainer").addEventListener("click", (e) => {
+          const toggleBtn = e.target.closest("[data-toggle-event]");
+          if (toggleBtn) {
+            const id = toggleBtn.getAttribute("data-toggle-event");
+            const item = state.timeline.find((ev) => ev.id === id);
+            if (item) item.done = !item.done;
+            saveTimeline();
+            renderTimeline();
+            return;
+          }
+          const delBtn = e.target.closest("[data-delete-event]");
+          if (delBtn) {
+            const id = delBtn.getAttribute("data-delete-event");
+            state.timeline = state.timeline.filter((ev) => ev.id !== id);
+            saveTimeline();
+            renderTimeline();
+          }
+        });
+
+        // Pomodoro Ember Controls
+        document.querySelectorAll("[data-ember-mins]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const mins = parseInt(btn.getAttribute("data-ember-mins"), 10);
+            state.emberRunning = false;
+            state.emberTotalSeconds = mins * 60;
+            state.emberRemainingSeconds = mins * 60;
+            document.getElementById("emberStateText").textContent = `${mins}M EMBER LOADED`;
+            document.querySelectorAll("[data-ember-mins]").forEach((b) => {
+              b.className = b === btn
+                ? "px-2 py-0.5 rounded-full accent-pill"
+                : "px-2 py-0.5 rounded-full bg-white/5 text-slate-400 hover:text-white";
+            });
+            updateEmberUI();
+          });
+        });
+
+        document.getElementById("emberStartPauseBtn").addEventListener("click", () => {
+          state.emberRunning = !state.emberRunning;
+          document.getElementById("emberStateText").textContent = state.emberRunning
+            ? "EMBER BURNING · DEEP FOCUS"
+            : "EMBER PAUSED";
+          updateEmberUI();
+        });
+
+        document.getElementById("emberResetBtn").addEventListener("click", () => {
+          state.emberRunning = false;
+          state.emberRemainingSeconds = state.emberTotalSeconds;
+          document.getElementById("emberStateText").textContent = "EMBER RESET · READY";
+          updateEmberUI();
+        });
+
+        // Media Controls
+        document.getElementById("playPauseMediaBtn").addEventListener("click", () => {
+          state.isPlayingMedia = !state.isPlayingMedia;
+          if (droneGain && audioCtx) {
+            droneGain.gain.setTargetAtTime(state.isPlayingMedia ? 0.04 : 0.0, audioCtx.currentTime, 0.15);
+          }
+          updateTrackDisplay();
+        });
+        document.getElementById("prevTrackBtn").addEventListener("click", () => {
+          state.trackIndex = (state.trackIndex - 1 + TRACKS.length) % TRACKS.length;
+          updateTrackDisplay();
+        });
+        document.getElementById("nextTrackBtn").addEventListener("click", () => {
+          state.trackIndex = (state.trackIndex + 1) % TRACKS.length;
+          updateTrackDisplay();
+        });
+        document.getElementById("synthSoundToggleBtn").addEventListener("click", toggleAmbientSynth);
+
+        // Weather City Switcher
+        document.getElementById("cycleCityBtn").addEventListener("click", () => {
+          state.cityIndex = (state.cityIndex + 1) % CITIES.length;
+          updateWeatherForCity();
+        });
+
+        // Webcam Radar Button
+        document.getElementById("cameraRadarBtn").addEventListener("click", toggleWebcamRadar);
+
+        window.addEventListener("resize", resizeCanvases);
+      }
+
+      // =========================================================================
+      // 11. INITIALIZATION
+      // =========================================================================
+      window.addEventListener("DOMContentLoaded", () => {
+        buildClockTicks();
+        renderVipSignals();
+        renderTimeline();
+        updateEmberUI();
+        updateTrackDisplay();
+        resizeCanvases();
+        wireControls();
+        updateWeatherForCity();
+        setInterval(updatePixelDrift, 250);
+        requestAnimationFrame(renderFrame);
+      });
+    })();
+  </script>
+</body>
+</html>
